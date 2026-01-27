@@ -60,17 +60,8 @@ Explore machine learning approaches to understanding visual collections:
 
 - **Python 3.8+** installed
 - **Jupyter Notebook** or **JupyterLab**
-- Basic familiarity with Python (variables, loops, functions)
-- Command line basics (optional but helpful)
+- Basic familiarity with Python
 
-### Hardware
-
-- **Notebook 1 (API & Data)**: Any laptop with internet connection
-- **Notebook 2 (CLIP Search)**:
-  - **Recommended**: Any laptop (using pre-calculated embeddings)
-  - **Optional**: CUDA-capable GPU (for computing embeddings from scratch)
-
----
 
 ## Installation & Setup
 
@@ -81,25 +72,7 @@ git clone https://github.com/yourusername/DH-Workshop-Uppsala.git
 cd DH-Workshop-Uppsala
 ```
 
-### 2. Install Dependencies
-
-For **Notebook 1** (API & Data):
-```bash
-pip install requests ipython pillow
-```
-
-For **Notebook 2** (CLIP Search):
-```bash
-pip install git+https://github.com/openai/CLIP.git
-pip install torch torchvision pillow numpy tqdm
-```
-
-Or install everything at once:
-```bash
-pip install -r requirements.txt  # (if provided)
-```
-
-### 3. Get a Free Europeana API Key
+### 2. Get a Free Europeana API Key
 
 1. Visit: https://pro.europeana.eu/page/get-api
 2. Register for a free Europeana account
@@ -111,7 +84,6 @@ mkdir -p misc
 echo "your-api-key-here" > misc/api-key-europeana.txt
 ```
 
-**Note:** The notebooks include a demo key for testing, but it's limited to 999 requests. For full workshop access, get your own free key.
 
 ### 4. Start Jupyter
 
@@ -184,20 +156,6 @@ DH-Workshop-Uppsala/
 ├── ARCHIVE/                             # Development notebooks
 └── README.md                            # This file
 ```
-
----
-
-## Learning Outcomes
-
-By the end of this workshop, participants will be able to:
-
-1. **Access cultural heritage data** programmatically using APIs
-2. **Understand and manipulate** JSON metadata structures
-3. **Filter and select** subsets of large cultural datasets
-4. **Use machine learning models** (CLIP) for semantic image search
-5. **Critically evaluate** how algorithms "read" and categorize visual data
-6. **Reflect on the affordances and limitations** of computational methods in cultural analysis
-
 ---
 
 ### Datasets & Licenses
