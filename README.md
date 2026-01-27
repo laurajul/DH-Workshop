@@ -2,10 +2,10 @@
 
 ![European Cultural Heritage Collections](images/preview/reals.webp)
 
-*Images obtained from Europeana's aggregated collections via their public API. Europeana provides access to 50+ million digitized items from European museums, galleries, libraries and archives.*
+*Images depicting **Shorelines** obtained from Europeana's aggregated collections via their public API. Europeana provides access to 50+ million digitized items from European museums, galleries, libraries and archives.*
 
 ---
-
+**
 ## About This Workshop
 
 This practical workshop introduces participants to computational approaches in the digital humanities through the analysis of European cultural heritage image collections. Drawing inspiration from the concept of "distant reading," the session explores how algorithms can be employed to "read" and interpret collections of visual and cultural data at scale.
