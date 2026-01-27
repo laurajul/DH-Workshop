@@ -2,3 +2,5 @@ ARCHIVE
 data/
 _env
 .claude
+misc/api-key.txt
+misc/api-key-europeana.txt
