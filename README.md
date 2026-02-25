@@ -1,6 +1,6 @@
 # Digital Humanities Workshop: Computational Analysis of Cultural Heritage Images
 
-![European Cultural Heritage Collections](images/preview/reals.webp)
+![European Cultural Heritage Collections](data/images/preview/reals.webp)
 
 *Images depicting **Shorelines** obtained from Europeana's aggregated collections via their public API. Europeana provides access to 50+ million digitized items from European museums, galleries, libraries and archives.*
 
