@@ -1,5 +1,6 @@
 ARCHIVE
 data/*
+!data/images/preview/reals.webp
 images/*
 _env
 .claude
