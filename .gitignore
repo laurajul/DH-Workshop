@@ -6,3 +6,5 @@ _env
 misc/api-key.txt
 misc/api-key-europeana.txt
 !images/images_go_here.txt
+notebooks/api-key-europeana.txt /home/lauhp
+**/*api-key*
