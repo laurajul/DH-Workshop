@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
 """
-Pre-calculate CLIP embeddings for the Finnish National Gallery dataset.
+Pre-calculate CLIP embeddings for workshop datasets.
 
-This script processes all images and saves their embeddings to a file that
-students can use during the workshop without needing a powerful GPU.
+This script processes all images in a directory and saves their embeddings
+to a file that students can use during the workshop without needing a GPU.
 
-Usage:
-    python precalculate_embeddings.py --images_dir ../images/all_images --output ../data/embeddings.npz
+INSTRUCTOR USE ONLY - The output embeddings file is shared with students.
+
+Example Usage (Uppsala University collection):
+    python precalculate_embeddings.py \\
+        --images_dir ../data/images/Uppsala_University \\
+        --output ../data/embeddings/uppsala_university_clip_embeddings.npz \\
+        --model ViT-B/32
+
+Example Usage (Custom collection):
+    python precalculate_embeddings.py \\
+        --images_dir ../data/images/My_Collection \\
+        --output ../data/embeddings/my_collection_clip_embeddings.npz \\
+        --model ViT-B/32 \\
+        --batch_size 64
 
 Requirements:
-    pip install torch torchvision clip-by-openai pillow tqdm numpy
+    pip install torch torchvision pillow tqdm numpy
+    pip install git+https://github.com/openai/CLIP.git
 """
 
 import argparse
