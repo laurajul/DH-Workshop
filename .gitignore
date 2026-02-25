@@ -1,6 +1,8 @@
 ARCHIVE
 data/
+images/*
 _env
 .claude
 misc/api-key.txt
 misc/api-key-europeana.txt
+!images/images_go_here.txt
