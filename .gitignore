@@ -1,7 +1,9 @@
 ARCHIVE
 data/*
 !data/images/
+data/images/*
 !data/images/preview/
+data/images/preview/*
 !data/images/preview/reals.webp
 images/*
 _env
