@@ -12,8 +12,10 @@ Output:
 What the script does for each notebook:
   1. Inserts a Google Drive mount cell at the very top
   2. Inserts a pip install cell for CLIP and other dependencies
-  3. Replaces PROJECT_ROOT with the Google Drive mountpoint path
-  4. Clears all cell outputs (clean slate for students)
+  3. Replaces PROJECT_ROOT / NOTEBOOK_DIR with the Google Drive mountpoint path
+  4. Embeds local images (misc/assets/img/) as base64 data URIs in markdown cells
+  5. Removes .mkdir() calls from path setup cells (directories exist in shared Drive)
+  6. Clears all cell outputs (clean slate for students)
 
 Google Drive layout expected on the student side:
     MyDrive/
@@ -22,14 +24,18 @@ Google Drive layout expected on the student side:
         │   ├── 01_europeana_api_and_data.ipynb
         │   └── ...
         ├── data/
-        ├── images/
+        │   ├── images/
+        │   └── embeddings/
+        ├── models/
         └── misc/
             └── api-key-europeana.txt   ← students put their key here
 """
 
 import argparse
+import base64
 import json
-import copy
+import mimetypes
+import re
 from pathlib import Path
 
 
@@ -58,21 +64,38 @@ INSTALL_CELL_SOURCE = """\
 """
 
 # ---------------------------------------------------------------------------
-# Path patterns to replace
+# Path patterns to detect and replace
 # ---------------------------------------------------------------------------
 
-# Notebook 01 — setup-code cell:
-#   PROJECT_ROOT = Path("../").resolve()
-NB01_OLD = 'PROJECT_ROOT = Path("../").resolve()'
+# NB01 — imports cell:
+#   NOTEBOOK_DIR = Path(".").resolve()
+#   PROJECT_ROOT = NOTEBOOK_DIR.parent
+NB01_OLD = 'NOTEBOOK_DIR = Path(".").resolve()\nPROJECT_ROOT = NOTEBOOK_DIR.parent'
 
-# Notebooks 02 / 03 / 04 — paths cell:
-#   CURRENT_DIR = Path.cwd()
+# NB02 / 03 / 04 — paths cell (regex handles the double-space alignment):
+#   CURRENT_DIR  = Path.cwd()
 #   PROJECT_ROOT = CURRENT_DIR.parent
-NB_OLD_BLOCK = "CURRENT_DIR = Path.cwd()\nPROJECT_ROOT = CURRENT_DIR.parent"
+NB_CURRENT_DIR_RE = re.compile(
+    r'CURRENT_DIR\s*=\s*Path\.cwd\(\)\s*\nPROJECT_ROOT\s*=\s*CURRENT_DIR\.parent'
+)
 
-# Notebook 04 has a slightly shorter paths cell (no extra path vars):
-#   CURRENT_DIR = Path.cwd()
-#   PROJECT_ROOT = CURRENT_DIR.parent
+# NB00 — environment-detection block marker:
+#   # Detect environment and set up paths
+#   try:
+#       import google.colab
+NB00_DETECT = "# Detect environment and set up paths\ntry:\n    import google.colab"
+
+# Regex to match the full NB00 setup block (replaced as a whole)
+NB00_BLOCK_RE = re.compile(
+    r"# Detect environment and set up paths\ntry:.*?print\(f'Models dir.*?'\)",
+    re.DOTALL,
+)
+
+# Standalone NOTEBOOK_DIR in non-setup cells (e.g. the API key cell):
+#   NOTEBOOK_DIR = Path(".").resolve()
+# → replaced with NOTEBOOK_DIR = PROJECT_ROOT so the variable stays defined
+STANDALONE_NOTEBOOK_DIR_OLD = 'NOTEBOOK_DIR = Path(".").resolve()'
+STANDALONE_NOTEBOOK_DIR_NEW = 'NOTEBOOK_DIR = PROJECT_ROOT'
 
 
 # ---------------------------------------------------------------------------
@@ -114,28 +137,96 @@ def make_markdown_cell(cell_id: str, source: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Conversion logic
+# Conversion helpers
 # ---------------------------------------------------------------------------
+
+def remove_mkdir_lines(source: str) -> str:
+    """Remove .mkdir() call lines from source and collapse extra blank lines."""
+    lines = source.split('\n')
+    filtered = [line for line in lines if '.mkdir(' not in line]
+    result = '\n'.join(filtered)
+    # Collapse three or more consecutive newlines into two
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result
+
 
 def replace_project_root(source: str, project_root_value: str) -> str:
     """
-    Replace any known local PROJECT_ROOT assignment with the Colab path.
-    Returns the (possibly modified) source string.
+    Replace any known local PROJECT_ROOT assignment with the Colab Drive path.
+    Also removes .mkdir() calls from the detected setup cell.
     """
     new_line = f'PROJECT_ROOT = Path("{project_root_value}")'
+    was_setup_cell = False
 
-    # Pattern used in notebook 01
+    # NB00: replace the entire environment-detection block with a clean assignment
+    if NB00_DETECT in source:
+        nb00_replacement = (
+            f'PROJECT_ROOT = Path("{project_root_value}")\n'
+            'NOTEBOOK_DIR = PROJECT_ROOT\n'
+            '\n'
+            "DATA_DIR   = PROJECT_ROOT / 'data'\n"
+            "IMAGES_DIR = DATA_DIR / 'images'\n"
+            "MODELS_DIR = PROJECT_ROOT / 'models' / 'CLIP'\n"
+            '\n'
+            "print(f'Project root : {PROJECT_ROOT}')\n"
+            "print(f'Data dir     : {DATA_DIR}')\n"
+            "print(f'Models dir   : {MODELS_DIR}')"
+        )
+        source, n = NB00_BLOCK_RE.subn(nb00_replacement, source)
+        if n:
+            was_setup_cell = True
+
+    # NB01: NOTEBOOK_DIR / PROJECT_ROOT block
     if NB01_OLD in source:
         source = source.replace(NB01_OLD, new_line)
+        was_setup_cell = True
 
-    # Pattern used in notebooks 02 / 03 / 04
-    if NB_OLD_BLOCK in source:
-        source = source.replace(NB_OLD_BLOCK, new_line)
+    # NB02 / 03 / 04: CURRENT_DIR / PROJECT_ROOT block (regex for whitespace variants)
+    if NB_CURRENT_DIR_RE.search(source):
+        source = NB_CURRENT_DIR_RE.sub(new_line, source)
+        was_setup_cell = True
+
+    # Strip .mkdir() calls from setup cells — directories exist in the shared Drive
+    if was_setup_cell:
+        source = remove_mkdir_lines(source)
+
+    # Standalone NOTEBOOK_DIR in non-setup cells (e.g. API key cell) — keep it defined
+    if STANDALONE_NOTEBOOK_DIR_OLD in source:
+        source = source.replace(STANDALONE_NOTEBOOK_DIR_OLD, STANDALONE_NOTEBOOK_DIR_NEW)
 
     return source
 
 
-def convert_notebook(input_path: Path, output_path: Path, project_folder: str) -> None:
+def image_to_data_uri(img_path: Path) -> str:
+    """Read an image file and return a base64 data URI."""
+    mime, _ = mimetypes.guess_type(str(img_path))
+    if mime is None:
+        ext = img_path.suffix.lower()
+        mime = {'svg': 'image/svg+xml', 'webp': 'image/webp'}.get(ext.lstrip('.'), 'application/octet-stream')
+    b64 = base64.b64encode(img_path.read_bytes()).decode('ascii')
+    return f'data:{mime};base64,{b64}'
+
+
+def embed_images(source: str, assets_dir: Path) -> str:
+    """Replace ../misc/assets/img/<file> references with inline base64 data URIs."""
+    def replacer(m):
+        alt, rel = m.group(1), m.group(2)
+        if '../misc/assets/img/' in rel:
+            filename = rel.split('../misc/assets/img/')[-1]
+            img_path = assets_dir / filename
+            if img_path.exists():
+                return f'![{alt}]({image_to_data_uri(img_path)})'
+        return m.group(0)
+
+    return re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', replacer, source)
+
+
+# ---------------------------------------------------------------------------
+# Conversion logic
+# ---------------------------------------------------------------------------
+
+def convert_notebook(input_path: Path, output_path: Path, project_folder: str,
+                     assets_dir: Path) -> None:
     project_root_value = f"{DRIVE_BASE}/{project_folder}"
 
     with open(input_path, encoding="utf-8") as f:
@@ -143,14 +234,18 @@ def convert_notebook(input_path: Path, output_path: Path, project_folder: str) -
 
     cells = nb.get("cells", [])
 
-    # 1. Replace PROJECT_ROOT in all code cells
+    # 1. Fix paths and embed images
     for cell in cells:
-        if cell.get("cell_type") != "code":
-            continue
-        src = source_as_str(cell)
-        new_src = replace_project_root(src, project_root_value)
-        if new_src != src:
-            cell["source"] = str_to_source(new_src)
+        if cell.get("cell_type") == "code":
+            src = source_as_str(cell)
+            new_src = replace_project_root(src, project_root_value)
+            if new_src != src:
+                cell["source"] = str_to_source(new_src)
+        elif cell.get("cell_type") == "markdown":
+            src = source_as_str(cell)
+            new_src = embed_images(src, assets_dir)
+            if new_src != src:
+                cell["source"] = str_to_source(new_src)
 
     # 2. Clear all outputs for a clean student experience
     for cell in cells:
@@ -195,10 +290,11 @@ def main():
     args = parser.parse_args()
 
     # Resolve paths relative to this script's location
-    script_dir   = Path(__file__).resolve().parent
-    repo_root    = script_dir.parent
+    script_dir    = Path(__file__).resolve().parent
+    repo_root     = script_dir.parent
     notebooks_dir = Path(args.notebooks_dir) if args.notebooks_dir else repo_root / "notebooks"
-    output_dir   = notebooks_dir / "colab"
+    output_dir    = notebooks_dir / "colab"
+    assets_dir    = repo_root / "misc" / "assets" / "img"
 
     notebooks = sorted(notebooks_dir.glob("*.ipynb"))
     if not notebooks:
@@ -216,7 +312,7 @@ def main():
     for nb_path in notebooks:
         out_path = output_dir / nb_path.name
         try:
-            convert_notebook(nb_path, out_path, project_folder)
+            convert_notebook(nb_path, out_path, project_folder, assets_dir)
         except Exception as e:
             print(f"  ✗  {nb_path.name}: {e}")
 
@@ -224,10 +320,11 @@ def main():
     print("Done!")
     print()
     print("Next steps:")
-    print(f"  1. Copy the following folders to MyDrive/{project_folder}/:")
-    print(f"       data/  images/  misc/  notebooks/colab/  (rename colab/ → notebooks/)")
+    print(f"  1. Share the following folder with students via Google Drive:")
+    print(f"       MyDrive/{project_folder}/")
+    print(f"     It should contain: data/  models/  misc/  and the colab notebooks")
     print(f"  2. Put the Europeana API key in misc/api-key-europeana.txt")
-    print(f"  3. Open a notebook in Colab and run the mount + install cells first")
+    print(f"  3. Students open a notebook in Colab, run the mount cell, then the install cell")
 
 
 if __name__ == "__main__":
