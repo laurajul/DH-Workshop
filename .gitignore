@@ -14,3 +14,4 @@ misc/api-key-europeana.txt
 notebooks/api-key-europeana.txt
 **/*api-key*
 models/CLIP/*.pt
+models/*
