@@ -13,3 +13,4 @@ misc/api-key-europeana.txt
 !images/images_go_here.txt
 notebooks/api-key-europeana.txt
 **/*api-key*
+models/CLIP/*.pt
