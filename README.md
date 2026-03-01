@@ -6,6 +6,10 @@
 
 ---
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/laurajul/DH-Workshop/notebooks/colab/00_complete_workshop.ipynb)
+
+
+
 ## About This Workshop
 
 This practical workshop introduces participants to computational approaches in the digital humanities through the analysis of European cultural heritage image collections. Drawing inspiration from the concept of "distant reading," the session explores how algorithms can be employed to "read" and interpret collections of visual and cultural data at scale.
