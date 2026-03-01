@@ -6,7 +6,7 @@
 
 ---
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/laurajul/DH-Workshop/notebooks/colab/00_complete_workshop.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/laurajul/DH-Workshop/blob/master/notebooks/colab/00_complete_workshop.ipynb)
 
 
 
